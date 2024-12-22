@@ -9,3 +9,4 @@ Rust application for integrating Zigbee devices.
 - [Rusqlite](https://github.com/rusqlite/rusqlite)
   - `features = ["bundled"]` handles installing SQLite
 - [SQLite](https://www.sqlite.org/index.html)
+- [Serde](https://serde.rs/)
