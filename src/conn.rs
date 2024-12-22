@@ -12,12 +12,42 @@ struct RetryConnectionCustomizer {
 
 pub fn create_pool(database_url: &str) -> SqlitePool {
     let manager = SqliteConnectionManager::file(database_url);
-    Pool::builder()
+    let pool = Pool::builder()
         .max_size(1) // Single connection
         .connection_timeout(Duration::from_secs(5))
         .connection_customizer(Box::new(RetryConnectionCustomizer { retries: 3 }))
         .build(manager)
-        .expect("Failed to create pool.")
+        .expect("Failed to create pool.");
+
+    setup_database(&pool);
+
+    pool
+}
+
+/// Set up the database by creating the necessary tables
+fn setup_database(pool: &SqlitePool) {
+    let conn = get_conn(&pool);
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY,
+            topic TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).expect("Failed to create messages table");
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sensor_data (
+            id INTEGER PRIMARY KEY,
+            temperature DECIMAL(4,2) NOT NULL,
+            humidity INTEGER NOT NULL,
+            linkquality INTEGER NOT NULL,
+            device_id TEXT NOT NULL,
+            received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).expect("Failed to create sensor_data table");
 }
 
 pub fn get_conn(pool: &SqlitePool) -> SqlitePooledConnection {

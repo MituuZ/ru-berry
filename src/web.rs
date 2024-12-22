@@ -47,7 +47,6 @@ async fn get_sensor_data(pool: SqlitePool) -> Result<impl warp::Reply, warp::Rej
 
 #[derive(Debug)]
 enum MyError {
-    DatabaseConnectionError,
     QueryPreparationError,
     QueryExecutionError,
     DataMappingError,
@@ -56,12 +55,12 @@ enum MyError {
 impl warp::reject::Reject for MyError {}
 
 pub async fn start_web_server(pool: &SqlitePool) {
+    println!("Starting web server on port 3030");
+
     let sensor_data_route = warp::path("sensor_data")
         .and(warp::get())
         .and(with_db(pool.clone()))
         .and_then(get_sensor_data);
-
-    println!("Starting web server on port 3030");
 
     warp::serve(sensor_data_route)
         .run(([127, 0, 0, 1], 3030)).await;
