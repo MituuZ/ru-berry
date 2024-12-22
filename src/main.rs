@@ -1,28 +1,40 @@
-use rumqttc::{Client, Event, Incoming, MqttOptions, QoS};
-use serde::Deserialize;
-use std::time::Duration;
-use std::fs;
-use rusqlite::Connection;
+mod web;
+mod conn;
 
-fn main() -> rusqlite::Result<()> {
+use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, QoS};
+use tokio::time::Duration;
+use serde::Deserialize;
+use std::fs;
+use crate::conn::{create_pool, get_conn, SqlitePool};
+
+#[tokio::main]
+async fn main() -> rusqlite::Result<()> {
     println!("Hello, world!");
 
     let config: Config = serde_json::from_str(&fs::read_to_string("config.json").expect("Unable to read config file"))
         .expect("Unable to parse config file");
 
-    let conn = setup_sqlite(&config)?;
+    let pool = create_pool(&config.sqlite_database);
+    setup_sqlite(&pool);
+
+    let conn = get_conn(&pool);
+
+    // Start the web server in a separate task
+    tokio::spawn(async move {
+        web::start_web_server(pool.clone()).await;
+    });
 
     let mut mqttoptions = MqttOptions::new("", &config.mqtt_ip, config.mqtt_port);
     mqttoptions.set_credentials(&config.username, &config.password);
     mqttoptions.set_keep_alive(Duration::from_secs(60));
 
-    let (client, mut connection) = Client::new(mqttoptions, 10);
-    client.subscribe(&config.mqtt_topic, QoS::AtMostOnce).unwrap();
+    let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    client.subscribe(&config.mqtt_topic, QoS::AtMostOnce).await.unwrap();
 
     // Iterate to poll the eventloop for connection progress and print messages
-    for notification in connection.iter() {
+    while let Ok(notification) = eventloop.poll().await {
         match notification {
-            Ok(Event::Incoming(Incoming::Publish(publish))) => {
+            Event::Incoming(Incoming::Publish(publish)) => {
                 let payload_str = String::from_utf8(publish.payload.to_vec()).unwrap();
                 println!("Received message: {:?}", payload_str);
 
@@ -45,17 +57,17 @@ fn main() -> rusqlite::Result<()> {
                     )?;
                 }
             },
-            Ok(event) => println!("Received = {:?}", event),
-            Err(e) => eprintln!("Error = {:?}", e),
+            Event::Incoming(event) => println!("Received = {:?}", event),
+            Event::Outgoing(_) => {},
         }
     }
 
     Ok(())
 }
 
-fn setup_sqlite(config: &Config) -> rusqlite::Result<Connection> {
+fn setup_sqlite(pool: &SqlitePool) {
     // Set up SQLite database
-    let conn = Connection::open(&config.sqlite_database)?;
+    let conn = get_conn(&pool);
     conn.execute(
         "CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY,
@@ -64,7 +76,7 @@ fn setup_sqlite(config: &Config) -> rusqlite::Result<Connection> {
             received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    )?;
+    ).expect("Failed to create messages table");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sensor_data (
             id INTEGER PRIMARY KEY,
@@ -75,8 +87,7 @@ fn setup_sqlite(config: &Config) -> rusqlite::Result<Connection> {
             received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    )?;
-    Ok(conn)
+    ).expect("Failed to create sensor_data table");
 }
 
 #[derive(Deserialize)]
