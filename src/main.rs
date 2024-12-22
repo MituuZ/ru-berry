@@ -14,7 +14,7 @@ async fn main() -> rusqlite::Result<()> {
     let config: Config = serde_json::from_str(&fs::read_to_string("config.json").expect("Unable to read config file"))
         .expect("Unable to parse config file");
 
-    let pool = create_pool(&config.sqlite_database);
+    let pool = create_pool(&config.sqlite_database).expect("Failed to create SQLite connection pool");
     println!("Connected to SQLite database");
 
     // Start the web server in a separate task

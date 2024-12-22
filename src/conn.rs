@@ -2,6 +2,7 @@ use std::fmt::{Debug, Formatter};
 use std::time::Duration;
 use r2d2::{CustomizeConnection, Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::{Connection, OpenFlags};
 
 pub type SqlitePool = Pool<SqliteConnectionManager>;
 pub type SqlitePooledConnection = PooledConnection<SqliteConnectionManager>;
@@ -10,7 +11,11 @@ struct RetryConnectionCustomizer {
     retries: i32
 }
 
-pub fn create_pool(database_url: &str) -> SqlitePool {
+pub fn create_pool(database_url: &str) -> Result<SqlitePool, &'static str> {
+    if is_database_locked(database_url) {
+        return Err("Database is locked by another process.");
+    }
+
     let manager = SqliteConnectionManager::file(database_url);
     let pool = Pool::builder()
         .max_size(1) // Single connection
@@ -21,7 +26,17 @@ pub fn create_pool(database_url: &str) -> SqlitePool {
 
     setup_database(&pool);
 
-    pool
+    Ok(pool)
+}
+
+fn is_database_locked(database_url: &str) -> bool {
+    match Connection::open_with_flags(
+        database_url,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+    ) {
+        Ok(_) => false,
+        Err(_) => true,
+    }
 }
 
 /// Set up the database by creating the necessary tables
