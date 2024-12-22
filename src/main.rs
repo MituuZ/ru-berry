@@ -17,11 +17,12 @@ async fn main() -> rusqlite::Result<()> {
     let pool = create_pool(&config.sqlite_database);
     setup_sqlite(&pool);
 
-    let conn = get_conn(&pool);
+    println!("Connected to SQLite database");
+    let web_pool = pool.clone();
 
     // Start the web server in a separate task
     tokio::spawn(async move {
-        web::start_web_server(pool.clone()).await;
+        web::start_web_server(&web_pool).await;
     });
 
     let mut mqttoptions = MqttOptions::new("", &config.mqtt_ip, config.mqtt_port);
@@ -39,6 +40,8 @@ async fn main() -> rusqlite::Result<()> {
                 println!("Received message: {:?}", payload_str);
 
                 // Insert message into messages table
+                let conn = get_conn(&pool);
+
                 conn.execute(
                     "INSERT INTO messages (topic, payload) VALUES (?1, ?2)",
                     &[&publish.topic, &payload_str],
