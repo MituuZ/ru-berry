@@ -6,5 +6,5 @@
   "mqtt_port": 1883,
   "mqtt_topic": "zigbee2mqtt/topic",
 
-  "sqlite_database": "~/.ru-berry.db"
+  "sqlite_database": "/home/user/.ru-berry.db"
 }

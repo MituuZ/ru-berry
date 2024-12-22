@@ -1,5 +1,7 @@
 # Ru Berry
-Rust application for integrating Zigbee devices.
+Rust application for integrating Zigbee devices designed to run on a Raspberry Pi.
+
+Initial goal is to persist and visualize temperature and humidity data.
 
 ## Stack
 - [Rust](https://www.rust-lang.org/)
