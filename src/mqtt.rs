@@ -7,11 +7,13 @@ use crate::config::Config;
 pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
     println!("Starting MQTT client");
 
-    let mut mqttoptions = MqttOptions::new("", &config.mqtt_ip, config.mqtt_port);
-    mqttoptions.set_credentials(&config.username, &config.password);
-    mqttoptions.set_keep_alive(Duration::from_secs(60));
+    let mut mqtt_options = MqttOptions::new("", &config.mqtt_ip, config.mqtt_port);
+    // Initial last message time is 30 minutes ago so the first message is always processed
+    let mut last_message_time = std::time::Instant::now() - Duration::from_secs(1800);
+    mqtt_options.set_credentials(&config.username, &config.password);
+    mqtt_options.set_keep_alive(Duration::from_secs(900)); // 15 minutes
 
-    let (client, mut eventloop) = AsyncClient::new(mqttoptions, 10);
+    let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
     client.subscribe(&config.mqtt_topic, QoS::AtMostOnce).await.unwrap();
 
     // Iterate to poll the eventloop for connection progress and print messages
@@ -23,11 +25,16 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
 
                 // Insert message into messages table
                 let conn = get_conn(&pool);
-
                 conn.execute(
                     "INSERT INTO messages (topic, payload) VALUES (?1, ?2)",
                     &[&publish.topic, &payload_str],
                 ).expect("Failed to insert message into messages table");
+
+                if last_message_time.elapsed() < Duration::from_secs(1800) {
+                    println!("Last message was less than 30 minutes ago, skipping processing");
+                    continue;
+                }
+                last_message_time = std::time::Instant::now();
 
                 // Assuming the payload is a JSON string with temperature, humidity, and linkquality fields
                 if let Ok(sensor_data) = serde_json::from_str::<SensorData>(&payload_str) {
