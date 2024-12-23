@@ -3,7 +3,7 @@ use crate::conn::{get_conn, SqlitePool};
 use rusqlite::Result;
 use serde::Serialize;
 use std::net::SocketAddr;
-use chrono::{Local, NaiveDateTime, TimeZone};
+use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use warp::Filter;
 
 #[derive(Serialize, Debug)]
@@ -81,10 +81,8 @@ async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply, wa
     // Inside the map function
     let received_at_naive = NaiveDateTime::parse_from_str(&sensor_data[0].received_at, "%Y-%m-%d %H:%M:%S")
         .expect("Failed to parse received_at");
-    let received_at_with_tz = Local
-        .from_local_datetime(&received_at_naive)
-        .single()
-        .expect("Failed to convert to timezone");
+    let received_at_utc = Utc.from_utc_datetime(&received_at_naive);
+    let received_at_with_tz = received_at_utc.with_timezone(&Local);
 
     let html = format!(
         "<html>
