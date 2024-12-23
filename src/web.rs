@@ -1,9 +1,10 @@
-use std::net::SocketAddr;
+use crate::config::Config;
 use crate::conn::{get_conn, SqlitePool};
 use rusqlite::Result;
 use serde::Serialize;
+use std::net::SocketAddr;
+use chrono::{Local, NaiveDateTime, TimeZone};
 use warp::Filter;
-use crate::config::Config;
 
 #[derive(Serialize, Debug)]
 struct SensorData {
@@ -51,8 +52,10 @@ async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply, wa
     let conn = get_conn(&pool);
     println!("Getting sensor data");
 
-    let mut stmt = match conn.prepare("select * from sensor_data where received_at \
-    >= datetime('now', '-3 days') order by temperature asc limit 1;") {
+    let mut stmt = match conn.prepare(
+        "select * from sensor_data where received_at \
+    >= datetime('now', '-3 days') order by temperature asc limit 1;",
+    ) {
         Ok(stmt) => stmt,
         Err(_) => return Err(warp::reject::custom(MyError::QueryPreparationError)),
     };
@@ -75,33 +78,49 @@ async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply, wa
         Err(_) => return Err(warp::reject::custom(MyError::DataMappingError)),
     };
 
+    // Inside the map function
+    let received_at_naive = NaiveDateTime::parse_from_str(&sensor_data[0].received_at, "%Y-%m-%d %H:%M:%S")
+        .expect("Failed to parse received_at");
+    let received_at_with_tz = Local
+        .from_local_datetime(&received_at_naive)
+        .single()
+        .expect("Failed to convert to timezone");
+
     let html = format!(
         "<html>
-            <head><title>Sensor Data Status</title></head>
-            <body>
-                <h1>Sensor Data Status</h1>
-                <table border=\"1\">
-                    <tr>
-                        <th>Temperature</th>
-                        <th>Humidity</th>
-                        <th>Link Quality</th>
-                        <th>Device ID</th>
-                        <th>Received At</th>
-                    </tr>
-                    {}
-                </table>
-            </body>
-        </html>",
-        sensor_data.iter().map(|data| format!(
-            "<tr>
-                <td>{}</td>
-                <td>{}</td>
-                <td>{}</td>
-                <td>{}</td>
-                <td>{}</td>
-            </tr>",
-            data.temperature, data.humidity, data.linkquality, data.device_id, data.received_at
-        )).collect::<String>()
+        <head><title>Sensor Data Status</title></head>
+        <body>
+            <h1>Sensor Data Status</h1>
+            <h2>Minimum Temperature in the Last 3 Days</h2>
+            <table border=\"1\">
+                <tr>
+                    <th>Temperature</th>
+                    <th>Humidity</th>
+                    <th>Link Quality</th>
+                    <th>Device ID</th>
+                    <th>Received At</th>
+                </tr>
+                {}
+            </table>
+        </body>
+    </html>",
+        sensor_data
+            .iter()
+            .map(|data| format!(
+                "<tr>
+            <td>{}</td>
+            <td>{}</td>
+            <td>{}</td>
+            <td>{}</td>
+            <td>{}</td>
+        </tr>",
+                data.temperature,
+                data.humidity,
+                data.linkquality,
+                data.device_id,
+                received_at_with_tz
+            ))
+            .collect::<String>()
     );
 
     Ok(warp::reply::html(html))
@@ -133,11 +152,14 @@ pub async fn start_web_server(config: &Config, pool: &SqlitePool) {
 
     let routes = sensor_data_route.or(sensor_data_status_route);
 
-    let addr: SocketAddr = format!("{}:{}", ip, port).parse().expect("Invalid IP address or port");
-    warp::serve(routes)
-        .run(addr).await;
+    let addr: SocketAddr = format!("{}:{}", ip, port)
+        .parse()
+        .expect("Invalid IP address or port");
+    warp::serve(routes).run(addr).await;
 }
 
-fn with_db(pool: SqlitePool) -> impl Filter<Extract = (SqlitePool,), Error = std::convert::Infallible> + Clone {
+fn with_db(
+    pool: SqlitePool,
+) -> impl Filter<Extract = (SqlitePool,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || pool.clone())
 }

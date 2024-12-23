@@ -12,3 +12,4 @@ warp = "0.3.7"
 r2d2 = "0.8"
 r2d2_sqlite = "0.25.0"
 tokio = {  version = "1.42.0", features = ["full", "rt-multi-thread"] }
+chrono = "0.4.39"
