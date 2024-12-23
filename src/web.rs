@@ -5,7 +5,7 @@ use serde::Serialize;
 use warp::Filter;
 use crate::config::Config;
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 struct SensorData {
     temperature: f32,
     humidity: i32,
@@ -70,15 +70,41 @@ async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply, wa
         Err(_) => return Err(warp::reject::custom(MyError::QueryExecutionError)),
     };
 
-    let mut sensor_data_vec = Vec::new();
-    for sensor_data in min_temp_data {
-        match sensor_data {
-            Ok(data) => sensor_data_vec.push(data),
-            Err(_) => return Err(warp::reject::custom(MyError::DataMappingError)),
-        }
-    }
+    let sensor_data = match min_temp_data.collect::<Result<Vec<SensorData>>>() {
+        Ok(data) => data,
+        Err(_) => return Err(warp::reject::custom(MyError::DataMappingError)),
+    };
 
-    Ok(warp::reply::json(&sensor_data_vec))
+    let html = format!(
+        "<html>
+            <head><title>Sensor Data Status</title></head>
+            <body>
+                <h1>Sensor Data Status</h1>
+                <table border=\"1\">
+                    <tr>
+                        <th>Temperature</th>
+                        <th>Humidity</th>
+                        <th>Link Quality</th>
+                        <th>Device ID</th>
+                        <th>Received At</th>
+                    </tr>
+                    {}
+                </table>
+            </body>
+        </html>",
+        sensor_data.iter().map(|data| format!(
+            "<tr>
+                <td>{}</td>
+                <td>{}</td>
+                <td>{}</td>
+                <td>{}</td>
+                <td>{}</td>
+            </tr>",
+            data.temperature, data.humidity, data.linkquality, data.device_id, data.received_at
+        )).collect::<String>()
+    );
+
+    Ok(warp::reply::html(html))
 }
 
 #[derive(Debug)]
