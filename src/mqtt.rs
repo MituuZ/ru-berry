@@ -21,7 +21,6 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
         match notification {
             Event::Incoming(Incoming::Publish(publish)) => {
                 let payload_str = String::from_utf8(publish.payload.to_vec()).unwrap();
-                println!("Received message: {:?}", payload_str);
 
                 // Insert message into messages table
                 let conn = get_conn(&pool);
@@ -34,7 +33,11 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
                     println!("Last message was less than 30 minutes ago, skipping processing");
                     continue;
                 }
-                last_message_time = std::time::Instant::now();
+                let now = std::time::Instant::now();
+                last_message_time = now;
+
+                let current_timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                println!("{} - Received message: {:?}", current_timestamp, payload_str);
 
                 // Assuming the payload is a JSON string with temperature, humidity, and linkquality fields
                 if let Ok(sensor_data) = serde_json::from_str::<SensorData>(&payload_str) {
