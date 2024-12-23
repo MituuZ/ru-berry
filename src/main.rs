@@ -19,14 +19,16 @@ async fn main() -> rusqlite::Result<()> {
 
     // Start the web server in a separate task
     let web_pool = pool.clone();
+    let web_config = config.clone();
     tokio::spawn(async move {
-        web::start_web_server(&config, &web_pool).await;
+        web::start_web_server(&web_config, &web_pool).await;
     });
 
     // Start the MQTT client in a separate task
     let mqtt_pool = pool.clone();
+    let mqtt_config = config.clone();
     tokio::spawn(async move {
-        mqtt::start_mqtt_client(&config, &mqtt_pool).await;
+        mqtt::start_mqtt_client(&mqtt_config, &mqtt_pool).await;
     });
 
     // Keep the main function alive
