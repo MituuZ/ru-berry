@@ -36,7 +36,7 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
                 let now = std::time::Instant::now();
                 last_message_time = now;
 
-                let current_timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                let current_timestamp = chrono::Local::now().with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M:%S").to_string();
                 println!("{} - Received message: {:?}", current_timestamp, payload_str);
 
                 // Assuming the payload is a JSON string with temperature, humidity, and linkquality fields
