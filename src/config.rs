@@ -10,4 +10,7 @@ pub struct Config {
     pub(crate) mqtt_topic: String,
 
     pub(crate) sqlite_database: String,
+
+    pub(crate) web_server_ip: String,
+    pub(crate) web_server_port: u16,
 }

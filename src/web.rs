@@ -1,7 +1,9 @@
+use std::net::SocketAddr;
 use crate::conn::{get_conn, SqlitePool};
 use rusqlite::Result;
 use serde::Serialize;
 use warp::Filter;
+use crate::config::Config;
 
 #[derive(Serialize)]
 struct SensorData {
@@ -54,16 +56,19 @@ enum MyError {
 
 impl warp::reject::Reject for MyError {}
 
-pub async fn start_web_server(pool: &SqlitePool) {
-    println!("Starting web server on port 3030");
+pub async fn start_web_server(config: &Config, pool: &SqlitePool) {
+    let ip = config.web_server_ip.clone();
+    let port = config.web_server_port;
+    println!("Starting web server on {}:{}", ip, port);
 
     let sensor_data_route = warp::path("sensor_data")
         .and(warp::get())
         .and(with_db(pool.clone()))
         .and_then(get_sensor_data);
 
+    let addr: SocketAddr = format!("{}:{}", ip, port).parse().expect("Invalid IP address or port");
     warp::serve(sensor_data_route)
-        .run(([127, 0, 0, 1], 3030)).await;
+        .run(addr).await;
 }
 
 fn with_db(pool: SqlitePool) -> impl Filter<Extract = (SqlitePool,), Error = std::convert::Infallible> + Clone {

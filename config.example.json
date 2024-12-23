@@ -6,5 +6,8 @@
   "mqtt_port": 1883,
   "mqtt_topic": "zigbee2mqtt/topic",
 
-  "sqlite_database": "/home/user/.ru-berry.db"
+  "sqlite_database": "/home/user/.ru-berry.db",
+
+  "web_server_ip": "localhost",
+  "web_server_port": 3030
 }
