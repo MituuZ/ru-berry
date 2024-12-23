@@ -47,6 +47,39 @@ async fn get_sensor_data(pool: SqlitePool) -> Result<impl warp::Reply, warp::Rej
     Ok(warp::reply::json(&sensor_data_vec))
 }
 
+async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply, warp::Rejection> {
+    let conn = get_conn(&pool);
+    println!("Getting sensor data");
+
+    let mut stmt = match conn.prepare("SELECT MIN(temperature) FROM sensor_data WHERE received_at >= datetime('now', '-3 days')") {
+        Ok(stmt) => stmt,
+        Err(_) => return Err(warp::reject::custom(MyError::QueryPreparationError)),
+    };
+
+    let min_temp_data = match stmt.query_map([], |row| {
+        Ok(SensorData {
+            temperature: row.get::<_, f64>(1)? as f32,
+            humidity: row.get(2)?,
+            linkquality: row.get(3)?,
+            device_id: row.get(4)?,
+            received_at: row.get(5)?,
+        })
+    }) {
+        Ok(iter) => iter,
+        Err(_) => return Err(warp::reject::custom(MyError::QueryExecutionError)),
+    };
+
+    let mut sensor_data_vec = Vec::new();
+    for sensor_data in min_temp_data {
+        match sensor_data {
+            Ok(data) => sensor_data_vec.push(data),
+            Err(_) => return Err(warp::reject::custom(MyError::DataMappingError)),
+        }
+    }
+
+    Ok(warp::reply::json(&sensor_data_vec))
+}
+
 #[derive(Debug)]
 enum MyError {
     QueryPreparationError,
@@ -66,8 +99,15 @@ pub async fn start_web_server(config: &Config, pool: &SqlitePool) {
         .and(with_db(pool.clone()))
         .and_then(get_sensor_data);
 
+    let sensor_data_status_route = warp::path("sensor_data_status")
+        .and(warp::get())
+        .and(with_db(pool.clone()))
+        .and_then(get_sensor_data_status);
+
+    let routes = sensor_data_route.or(sensor_data_status_route);
+
     let addr: SocketAddr = format!("{}:{}", ip, port).parse().expect("Invalid IP address or port");
-    warp::serve(sensor_data_route)
+    warp::serve(routes)
         .run(addr).await;
 }
 
