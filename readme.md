@@ -17,13 +17,21 @@ so it is recommended to cross-compile the project on a more powerful machine.
 
 Here's an example using [cross](https://github.com/cross-rs/cross). Verified to work on Debian.
 1. Install cross
-cargo install cross --git https://github.com/cross-rs/cross2
+  ```bash
+  cargo install cross --git https://github.com/cross-rs/cross2
+  ```
 2. Build the executable for the Raspberry Pi
-cross build --target aarch64-unknown-linux-gnu --release
+  ```bash
+  cross build --target aarch64-unknown-linux-gnu --release
+  ```
 3. Transfer the binary to the Raspberry Pi: You can use scp to transfer the binary:  
-scp target/aarch64-unknown-linux-gnu/release/ru-berry pi@raspberrypi:/path/to/destination
-4. Run the binary on the Raspberry Pi:  
-./ru-berry
+  ```bash
+  scp target/aarch64-unknown-linux-gnu/release/ru-berry user@raspberrypi:/path/to/destination
+  ```
+4. Run the binary on the Raspberry Pi (requires `config.json` in the same directory)
+  ```bash
+  ./ru-berry
+  ```
 
 ## Running the application
 The application can be run either with a nohup command, or as a service.
