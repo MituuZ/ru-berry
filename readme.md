@@ -72,6 +72,24 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
+#### Updating the service with a script
+A small bash script that updates the service file and restarts the service.
+
+```bash
+#!/usr/bin/zsh
+# Build executable
+cross build --target aarch64-unknown-linux-gnu --release
+
+# Stop the service
+ssh user@pi "sudo systemctl stop ru-berry"
+
+# Copy executable to target
+scp target/aarch64-unknown-linux-gnu/release/ru-berry user@pi:ru-berry/ru-berry
+
+# Restart service on target
+ssh user@pi "sudo systemctl restart ru-berry"
+```
+
 ## Stack and dependencies
 - [Rust](https://www.rust-lang.org/)
 - [Mosquitto](https://mosquitto.org/) 
