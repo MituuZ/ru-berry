@@ -1,5 +1,6 @@
 # Ru Berry
 Rust application for integrating Zigbee devices designed to run on a Raspberry Pi.
+The application expects a Zigbee2MQTT setup with an MQTT broker (e.g. Mosquitto).
 
 Initial goal is to persist and visualize temperature and humidity data.
 
@@ -9,6 +10,28 @@ This way there is no need to worry about async issues with SQLite.
 The program consists of two parts, which are run on separate threads with tokio:
 1. A MQTT client that listens for messages from Zigbee2MQTT and persists them to a SQLite database.
 2. A web server that serves the data from the SQLite database.
+
+## Building for Raspberry Pi
+Building the project on the Pi takes a significant amount of time, 
+so it is recommended to cross-compile the project on a more powerful machine.
+
+Here's an example using [cross](https://github.com/cross-rs/cross). Verified to work on Debian.
+1. Install cross
+cargo install cross --git https://github.com/cross-rs/cross2
+2. Build the executable for the Raspberry Pi
+cross build --target aarch64-unknown-linux-gnu --release
+3. Transfer the binary to the Raspberry Pi: You can use scp to transfer the binary:  
+scp target/aarch64-unknown-linux-gnu/release/ru-berry pi@raspberrypi:/path/to/destination
+4. Run the binary on the Raspberry Pi:  
+./ru-berry
+
+## Running the application
+The application can be run either with a nohup command, or as a service.
+
+### Running with nohup
+```bash
+nohup ./ru-berry &
+```
 
 ## Stack and dependencies
 - [Rust](https://www.rust-lang.org/)
@@ -22,3 +45,4 @@ The program consists of two parts, which are run on separate threads with tokio:
 - [r2d2](https://github.com/sfackler/r2d2)
 - [tokio](https://tokio.rs/)
 - [warp](https://github.com/seanmonstar/warp)
+- [chrono](https://github.com/chronotope/chrono)
