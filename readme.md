@@ -29,8 +29,37 @@ scp target/aarch64-unknown-linux-gnu/release/ru-berry pi@raspberrypi:/path/to/de
 The application can be run either with a nohup command, or as a service.
 
 ### Running with nohup
+To keep the application running after closing the terminal, use nohup.
 ```bash
 nohup ./ru-berry &
+```
+#### Stopping the process
+##### Find the process
+```bash
+ps -ef | grep ru-berry
+```
+
+##### Kill the process
+```bash
+kill <PID>
+```
+
+### Running as a service
+Here's my service file `/etc/systemd/system/ru-berry.service`
+
+```ini
+[Unit]
+Description=Ru Berry - Rust application for MQTT and web server
+After=network.target
+ 
+[Service]
+User=user
+WorkingDirectory=/home/user/ru-berry
+ExecStart=/home/user/ru-berry/ru-berry
+Restart=always
+ 
+[Install]
+WantedBy=multi-user.target
 ```
 
 ## Stack and dependencies
