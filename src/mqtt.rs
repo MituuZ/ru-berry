@@ -26,24 +26,24 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
         match notification {
             Event::Incoming(Incoming::Publish(publish)) => {
                 let payload_str = String::from_utf8(publish.payload.to_vec()).unwrap();
+                let local_timestamp = chrono::Local::now()
+                    .with_timezone(&chrono::Local)
+                    .format("%Y-%m-%d %H:%M:%S")
+                    .to_string();
 
                 // Insert message into messages table
                 audit_message(&pool, &publish.topic, &payload_str);
 
                 if last_message_time.elapsed() < Duration::from_secs(1800) {
-                    println!("Last message was less than 30 minutes ago, skipping processing");
+                    println!("{} - Last message was less than 30 minutes ago, skipping processing",
+                             local_timestamp);
                     continue;
                 }
-                let now = std::time::Instant::now();
-                last_message_time = now;
+                last_message_time = std::time::Instant::now();
 
-                let current_timestamp = chrono::Local::now()
-                    .with_timezone(&chrono::Local)
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string();
                 println!(
-                    "{} - Received message: {:?}",
-                    current_timestamp, payload_str
+                    "{} - Handled message: {:?}",
+                    local_timestamp, payload_str
                 );
 
                 let json_value = serde_json::from_str(&payload_str);
