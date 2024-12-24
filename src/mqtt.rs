@@ -1,10 +1,10 @@
-use std::error::Error;
 use crate::config::Config;
 use crate::conn::{get_conn, SqlitePool};
 use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, QoS};
-use serde_json::{Map, Value};
-use std::time::Duration;
 use rusqlite::params;
+use serde_json::{Map, Value};
+use std::error::Error;
+use std::time::Duration;
 
 pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
     println!("Starting MQTT client");
@@ -61,11 +61,13 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
 
 fn audit_message(pool: &SqlitePool, topic: &str, payload_str: &str) {
     let conn = get_conn(&pool);
-    conn.execute(
+    match conn.execute(
         "INSERT INTO messages (topic, payload) VALUES (?1, ?2)",
         &[&topic, &payload_str],
-    )
-        .expect("Failed to insert message into messages table");
+    ) {
+        Ok(_) => (),
+        Err(e) => println!("Failed to insert message into messages table: {:?}", e),
+    }
 }
 
 fn handle_message(payload: &Value, pool: &&SqlitePool, topic: &str) {
@@ -73,7 +75,10 @@ fn handle_message(payload: &Value, pool: &&SqlitePool, topic: &str) {
         if key_value_json.contains_key("temperature") && key_value_json.contains_key("humidity") {
             match temperature_and_humidity_sensor(key_value_json, pool, topic) {
                 Ok(..) => (),
-                Err(e) => println!("Failed to insert temperature and humidity sensor data: {:?}", e),
+                Err(e) => println!(
+                    "Failed to insert temperature and humidity sensor data: {:?}",
+                    e
+                ),
             }
         }
     } else {
@@ -81,19 +86,26 @@ fn handle_message(payload: &Value, pool: &&SqlitePool, topic: &str) {
     }
 }
 
-fn temperature_and_humidity_sensor(json_object: &Map<String, Value>, pool: &SqlitePool, topic: &str) -> Result<(), Box<dyn Error>> {
+fn temperature_and_humidity_sensor(
+    json_object: &Map<String, Value>,
+    pool: &SqlitePool,
+    topic: &str,
+) -> Result<(), Box<dyn Error>> {
     let conn = get_conn(&pool);
 
-    let temperature = json_object.get("temperature")
+    let temperature = json_object
+        .get("temperature")
         .and_then(Value::as_f64)
         .map(|v| v as f32)
         .ok_or("Temperature not found or not a valid f64")?;
 
-    let humidity = json_object.get("humidity")
+    let humidity = json_object
+        .get("humidity")
         .and_then(Value::as_i64)
         .ok_or("Humidity not found or not a valid i64")?;
 
-    let linkquality = json_object.get("linkquality")
+    let linkquality = json_object
+        .get("linkquality")
         .and_then(Value::as_i64)
         .ok_or("Linkquality not found or not a valid i64")?;
 
@@ -110,31 +122,12 @@ fn temperature_and_humidity_sensor(json_object: &Map<String, Value>, pool: &Sqli
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
     use crate::conn::get_test_pool;
-
-    fn setup_test_db() -> SqlitePool {
-        let pool = get_test_pool();
-        let conn = get_conn(&pool);
-
-        conn.execute(
-            "CREATE TABLE sensor_data (
-                id INTEGER PRIMARY KEY,
-                temperature REAL NOT NULL,
-                humidity INTEGER NOT NULL,
-                linkquality INTEGER NOT NULL,
-                device_id TEXT NOT NULL
-            )",
-            [],
-        )
-        .unwrap();
-
-        pool
-    }
+    use serde_json::json;
 
     #[test]
     fn test_temperature_and_humidity_sensor_valid_data() {
-        let pool = setup_test_db();
+        let pool = get_test_pool();
         let json_object = json!({
             "temperature": 22.5,
             "humidity": 60,
@@ -151,7 +144,7 @@ mod tests {
 
     #[test]
     fn test_temperature_and_humidity_sensor_missing_temperature() {
-        let pool = setup_test_db();
+        let pool = get_test_pool();
         let json_object = json!({
             "humidity": 60,
             "linkquality": 100
@@ -167,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_temperature_and_humidity_sensor_invalid_humidity() {
-        let pool = setup_test_db();
+        let pool = get_test_pool();
         let json_object = json!({
             "temperature": 22.5,
             "humidity": "invalid",
@@ -184,7 +177,7 @@ mod tests {
 
     #[test]
     fn test_temperature_and_humidity_sensor_missing_linkquality() {
-        let pool = setup_test_db();
+        let pool = get_test_pool();
         let json_object = json!({
             "temperature": 22.5,
             "humidity": 60
@@ -196,5 +189,29 @@ mod tests {
 
         let result = temperature_and_humidity_sensor(&json_object, &pool, topic);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_audit_message() {
+        let pool = get_test_pool();
+        let topic = "sensor/device123";
+        let payload_str = "{\"temperature\": 22.5, \"humidity\": 60, \"linkquality\": 100}";
+
+        audit_message(&pool, topic, payload_str);
+
+        let conn = get_conn(&pool);
+        let mut stmt = conn
+            .prepare("SELECT topic, payload FROM messages WHERE topic = ?1")
+            .unwrap();
+        let mut rows = stmt.query(params![topic]).unwrap();
+
+        if let Some(row) = rows.next().unwrap() {
+            let db_topic: String = row.get(0).unwrap();
+            let db_payload: String = row.get(1).unwrap();
+            assert_eq!(db_topic, topic);
+            assert_eq!(db_payload, payload_str);
+        } else {
+            panic!("No message found in the database");
+        }
     }
 }

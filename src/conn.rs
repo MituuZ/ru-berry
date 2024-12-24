@@ -94,5 +94,7 @@ pub fn get_test_pool() -> SqlitePool {
     let manager = SqliteConnectionManager::memory();
     let pool = Pool::builder().build(manager).unwrap();
 
+    setup_database(&pool);
+
     pool
 }
