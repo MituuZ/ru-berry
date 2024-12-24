@@ -1,19 +1,10 @@
 use crate::config::Config;
 use crate::conn::{get_conn, SqlitePool};
+use crate::model::SensorData;
 use rusqlite::Result;
-use serde::Serialize;
 use std::net::SocketAddr;
 use chrono::{Local, NaiveDateTime, TimeZone, Utc};
 use warp::Filter;
-
-#[derive(Serialize, Debug)]
-struct SensorData {
-    temperature: f32,
-    humidity: i32,
-    linkquality: i32,
-    device_id: String,
-    received_at: String,
-}
 
 async fn get_sensor_data(pool: SqlitePool) -> Result<impl warp::Reply, warp::Rejection> {
     let conn = get_conn(&pool);

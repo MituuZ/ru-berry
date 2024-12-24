@@ -2,6 +2,7 @@ mod web;
 mod conn;
 mod mqtt;
 mod config;
+mod model;
 
 use crate::conn::create_pool;
 use config::Config;

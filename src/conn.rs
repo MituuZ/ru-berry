@@ -88,3 +88,11 @@ impl CustomizeConnection<rusqlite::Connection, rusqlite::Error> for RetryConnect
         ))
     }
 }
+
+#[cfg(test)]
+pub fn get_test_pool() -> SqlitePool {
+    let manager = SqliteConnectionManager::memory();
+    let pool = Pool::builder().build(manager).unwrap();
+
+    pool
+}
