@@ -10,8 +10,6 @@ use std::fs;
 
 #[tokio::main]
 async fn main() -> rusqlite::Result<()> {
-    println!("Hello, world!");
-
     let config: Config = serde_json::from_str(&fs::read_to_string("config.json").expect("Unable to read config file"))
         .expect("Unable to parse config file");
 
