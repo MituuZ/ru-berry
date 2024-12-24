@@ -47,6 +47,8 @@ kill <PID>
 ### Running as a service
 Here's my service file `/etc/systemd/system/ru-berry.service`
 
+Working directory is set, because `config.json` is loaded from the current directory.
+
 ```ini
 [Unit]
 Description=Ru Berry - Rust application for MQTT and web server
