@@ -7,6 +7,7 @@ mod model;
 use crate::conn::create_pool;
 use config::Config;
 use std::fs;
+use crate::web::ru_berry_web;
 
 #[tokio::main]
 async fn main() -> rusqlite::Result<()> {
@@ -20,7 +21,7 @@ async fn main() -> rusqlite::Result<()> {
     let web_pool = pool.clone();
     let web_config = config.clone();
     tokio::spawn(async move {
-        web::start_web_server(&web_config, &web_pool).await;
+        ru_berry_web::start_web_server(&web_config, &web_pool).await;
     });
 
     // Start the MQTT client in a separate task
