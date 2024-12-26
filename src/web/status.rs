@@ -58,7 +58,20 @@ pub async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply
 
     let html = format!(
         "<html>
-        <head><title>Sensor Data Status</title></head>
+        <head>
+            <title>Sensor Data Status</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                }}
+                table {{
+                    border-collapse: collapse;
+                }}
+                th, td {{
+                    padding: 8px;
+                }}
+            </style>
+        </head>
         <body>
             <h1>Sensor Data Status</h1>
             {}
