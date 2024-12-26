@@ -8,20 +8,32 @@ pub async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply
 
     let mut stmt = match conn.prepare(
         "SELECT * FROM (
-            SELECT *, 1 as data_type FROM (
-                SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY temperature ASC LIMIT 1
-            )
+                SELECT *, 1 as data_type FROM (
+                    SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY temperature ASC LIMIT 1
+                )
             )
             UNION
             SELECT * FROM (
                 SELECT *, 2 as data_type FROM (
-                    SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY humidity ASC LIMIT 1
+                    SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY humidity DESC LIMIT 1
                 )
             )
             UNION
             SELECT * FROM (
                 SELECT *, 3 as data_type FROM (
+                    SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY humidity ASC LIMIT 1
+                )
+            )
+            UNION
+            SELECT * FROM (
+                SELECT *, 4 as data_type FROM (
                     SELECT * FROM sensor_data WHERE received_at >= datetime('now', '-3 days') ORDER BY humidity DESC LIMIT 1
+                )
+            )
+            UNION
+            SELECT * FROM (
+                SELECT *, 5 as data_type FROM (
+                    SELECT * FROM sensor_data order by received_at DESC LIMIT 1
                 )
             )
             ORDER BY data_type;"
@@ -51,10 +63,14 @@ pub async fn get_sensor_data_status(pool: SqlitePool) -> Result<impl warp::Reply
             <h1>Sensor Data Status</h1>
             {}
             {}
+            {}
+            {}
             {}",
-        create_table(&sensor_data[0], "Lowest Temperature"),
-        create_table(&sensor_data[1], "Lowest Humidity"),
-        create_table(&sensor_data[2], "Highest Humidity")
+        create_table(&sensor_data[0], "Lowest Temperature in the Last 3 Days"),
+        create_table(&sensor_data[1], "Highest Temperature in the Last 3 Days"),
+        create_table(&sensor_data[2], "Lowest Humidity in the Last 3 Days"),
+        create_table(&sensor_data[3], "Highest Humidity in the Last 3 Days"),
+        create_table(&sensor_data[4], "Latest Reading")
     );
 
     let html: &'static str = Box::leak(html.into_boxed_str());
