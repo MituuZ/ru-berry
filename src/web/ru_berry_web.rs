@@ -10,7 +10,13 @@ async fn get_sensor_data(pool: SqlitePool) -> Result<impl warp::Reply, warp::Rej
     let conn = get_conn(&pool);
     println!("Getting sensor data");
 
-    let mut stmt = match conn.prepare("SELECT * FROM sensor_data") {
+    let mut stmt = match conn.prepare(
+        "
+        SELECT * FROM sensor_data
+        WHERE received_at >= datetime('now', '-3 days')
+        order by device_id, received_at
+        "
+    ) {
         Ok(stmt) => stmt,
         Err(_) => return Err(warp::reject::custom(MyError::QueryPreparationError)),
     };
