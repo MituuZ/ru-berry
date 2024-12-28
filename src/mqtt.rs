@@ -107,11 +107,10 @@ fn temperature_and_humidity_sensor(
         .map(|v| v as f32)
         .ok_or("Temperature not found or not a valid f64")?;
 
-    let humidity: f32 = json_object
+    let humidity = json_object
         .get("humidity")
-        .and_then(Value::as_f64)
-        .map(|v| v as f32)
-        .ok_or("Humidity not found or not a valid i64")?;
+        .and_then(|v| v.as_i64().or_else(|| v.as_f64().map(|f| f as i64)))
+        .ok_or("Humidity not found or not a valid i64 or f64")?;
 
     let linkquality = json_object
         .get("linkquality")
