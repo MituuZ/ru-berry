@@ -1,14 +1,14 @@
-use std::fmt::{Debug, Formatter};
-use std::time::Duration;
 use r2d2::{CustomizeConnection, Pool, PooledConnection};
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::{Connection, OpenFlags};
+use std::fmt::{Debug, Formatter};
+use std::time::Duration;
 
 pub type SqlitePool = Pool<SqliteConnectionManager>;
 pub type SqlitePooledConnection = PooledConnection<SqliteConnectionManager>;
 
 struct RetryConnectionCustomizer {
-    retries: i32
+    retries: i32,
 }
 
 pub fn create_pool(database_url: &str) -> Result<SqlitePool, &'static str> {
@@ -50,7 +50,8 @@ fn setup_database(pool: &SqlitePool) {
             received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).expect("Failed to create messages table");
+    )
+    .expect("Failed to create messages table");
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sensor_data (
@@ -62,7 +63,18 @@ fn setup_database(pool: &SqlitePool) {
             received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).expect("Failed to create sensor_data table");
+    )
+    .expect("Failed to create sensor_data table");
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS topic_configuration (
+        id INTEGER PRIMARY KEY,
+        topic_name TEXT NOT NULL,
+        status_type TEXT NOT NULL
+    )",
+        [],
+    )
+    .expect("Failed to create topic_configuration table");
 }
 
 pub fn get_conn(pool: &SqlitePool) -> SqlitePooledConnection {
@@ -71,12 +83,16 @@ pub fn get_conn(pool: &SqlitePool) -> SqlitePooledConnection {
 
 impl Debug for RetryConnectionCustomizer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RetryConnectionCustomizer {{ retries: {} }}", self.retries)
+        write!(
+            f,
+            "RetryConnectionCustomizer {{ retries: {} }}",
+            self.retries
+        )
     }
 }
 
-impl CustomizeConnection<rusqlite::Connection, rusqlite::Error> for RetryConnectionCustomizer {
-    fn on_acquire(&self, conn: &mut rusqlite::Connection) -> Result<(), rusqlite::Error> {
+impl CustomizeConnection<Connection, rusqlite::Error> for RetryConnectionCustomizer {
+    fn on_acquire(&self, conn: &mut Connection) -> Result<(), rusqlite::Error> {
         for _ in 0..self.retries {
             if conn.is_autocommit() {
                 return Ok(());
@@ -84,7 +100,7 @@ impl CustomizeConnection<rusqlite::Connection, rusqlite::Error> for RetryConnect
         }
         Err(rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_BUSY),
-            Some("Failed to acquire connection after retries".to_string())
+            Some("Failed to acquire connection after retries".to_string()),
         ))
     }
 }
