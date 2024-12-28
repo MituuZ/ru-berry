@@ -4,22 +4,24 @@ use rumqttc::{AsyncClient, Event, Incoming, MqttOptions, QoS};
 use rusqlite::params;
 use serde_json::{Map, Value};
 use std::error::Error;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
     println!("Starting MQTT client");
 
     let mut mqtt_options = MqttOptions::new("", &config.mqtt_ip, config.mqtt_port);
-    // Initial last message time is 30 minutes ago so the first message is always processed
-    let mut last_message_time = std::time::Instant::now() - Duration::from_secs(1800);
+    let mut last_messages: std::collections::HashMap<String, Instant> =
+        std::collections::HashMap::new();
     mqtt_options.set_credentials(&config.username, &config.password);
     mqtt_options.set_keep_alive(Duration::from_secs(900)); // 15 minutes
 
     let (client, mut eventloop) = AsyncClient::new(mqtt_options, 10);
-    client
-        .subscribe(&config.mqtt_topic, QoS::AtMostOnce)
-        .await
-        .unwrap();
+
+    // Subscribe to multiple topics
+    let topics = &config.mqtt_topics;
+    for topic in topics {
+        client.subscribe(topic, QoS::AtMostOnce).await.unwrap();
+    }
 
     // Iterate to poll the eventloop for connection progress and print messages
     while let Ok(notification) = eventloop.poll().await {
@@ -31,20 +33,26 @@ pub async fn start_mqtt_client(config: &Config, pool: &SqlitePool) {
                     .format("%Y-%m-%d %H:%M:%S")
                     .to_string();
 
-                // Insert message into messages table
+                // Insert all received messages into messages table
                 audit_message(&pool, &publish.topic, &payload_str);
 
-                if last_message_time.elapsed() < Duration::from_secs(1800) {
-                    println!("{} - Last message was less than 30 minutes ago, skipping processing",
-                             local_timestamp);
+                let should_update = if let Some(t) = last_messages.get(&publish.topic) {
+                    t.elapsed() > Duration::from_secs(1800)
+                } else {
+                    true
+                };
+
+                if should_update {
+                    last_messages.insert(publish.topic.clone(), Instant::now());
+                } else {
+                    println!(
+                        "{} - {} Last message was less than 30 minutes ago, skipping",
+                        local_timestamp, &publish.topic
+                    );
                     continue;
                 }
-                last_message_time = std::time::Instant::now();
 
-                println!(
-                    "{} - Handled message: {:?}",
-                    local_timestamp, payload_str
-                );
+                println!("{} - {} Handled message: {:?}", local_timestamp, &publish.topic, payload_str);
 
                 let json_value = serde_json::from_str(&payload_str);
                 match json_value {
