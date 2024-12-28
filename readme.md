@@ -12,6 +12,7 @@ The program consists of two parts, which are run on separate threads with tokio:
 2. A web server that serves the data from the SQLite database.
 
 ## Configuration
+### Application configuration
 The application expects a `config.json` file in the same directory as the executable.
 
 You can start by copying the `config.json.example` file and modifying it to your needs.
@@ -36,6 +37,16 @@ cp config.json.example config.json
   - Which IP address the web server should listen on
 - `web_server_port`
   - Port of the web server
+
+### Topic configuration
+The application uses `topic_configuration`-table to handle which topics are shown on the status page 
+and how they are displayed.
+
+#### Status types
+- basic
+    - Displays max/min values for the last 3 days and the latest reading
+- boolean
+    - Displays if the limit is being hit and the latest reading
 
 ## Building for Raspberry Pi
 Building the project on the Pi takes a significant amount of time, 
