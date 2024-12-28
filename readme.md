@@ -11,6 +11,32 @@ The program consists of two parts, which are run on separate threads with tokio:
 1. An MQTT client that listens for messages from Zigbee2MQTT and persists them to a SQLite database.
 2. A web server that serves the data from the SQLite database.
 
+## Configuration
+The application expects a `config.json` file in the same directory as the executable.
+
+You can start by copying the `config.json.example` file and modifying it to your needs.
+```bash
+cp config.json.example config.json
+```
+
+- `username`
+  - Username for the MQTT broker
+- `password`
+  - Password for the MQTT broker
+- `mqtt_ip`
+  - IP address of the MQTT broker
+- `mqtt_port`
+  - Port of the MQTT broker
+- `mqtt_topics`
+  - JSON array of topics to subscribe to
+  - If you are using zigbee2mqtt, you can subscribe to `zigbee2mqtt/{friendly_name}`
+- `sqllite_database`
+  - Path to the SQLite database
+- `web_server_ip`
+  - Which IP address the web server should listen on
+- `web_server_port`
+  - Port of the web server
+
 ## Building for Raspberry Pi
 Building the project on the Pi takes a significant amount of time, 
 so it is recommended to cross-compile the project on a more powerful machine.
