@@ -137,7 +137,8 @@ fn create_table(sensor_data: &SensorData, title: &str) -> String {
 fn fetch_topics(pool: &SqlitePool) -> Option<HashMap<String, StatusType>> {
     let conn = get_conn(pool);
     let mut stmt = conn
-        .prepare("SELECT topic_name, status_type FROM topic_configuration order by status_type;")
+        .prepare("SELECT topic_name, status_type FROM topic_configuration \
+        order by status_type, topic_name;")
         .ok()?;
 
     let query_data = stmt
